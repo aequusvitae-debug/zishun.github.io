@@ -22,13 +22,62 @@
     <script type='text/javascript' src='main.js'></script>
 
     <script>
-    // Aguarda main.js inicializar o modelo antes de escutar mensagens
+    // Limita um valor entre min e max
+    function clamp(val, min, max) {
+        return Math.max(min, Math.min(max, val));
+    }
+
+    // Chamada pelo app React Native com os dados do aluno
+    window._kcApplyMeasurements = function(data) {
+        // 1. Define o gênero
+        var genderVal = (data.gender === 'male') ? 1 : 0;
+        setGender(genderVal);
+
+        var isMale = (genderVal === 1);
+        var defaults = isMale
+            ? [90.6, 86.7, 81.2, 95.2, 38.5, 77.1, 37.7, 174.0]
+            : [90.4, 80.6, 80.2, 98.3, 33.4, 76.3, 36.6, 168.0];
+
+        var h   = parseFloat(data.height) || (defaults[7] / 100); // metros
+        var hCm = h * 100; // converte para cm
+
+        var bust      = parseFloat(data.bust)    || defaults[0];
+        var underBust = bust * 0.88;              // estimado
+        var waist     = parseFloat(data.waist)   || defaults[2];
+        var hip       = parseFloat(data.hip)     || defaults[3];
+        var neckGirth = defaults[4];              // sem campo no KC
+        var insideLeg = hCm * 0.45;              // estimado pela altura
+        var shoulder  = parseFloat(data.shoulder)|| defaults[6];
+
+        // 2. Monta o array respeitando os limites do modelo
+        var mins = [ 79.0,  70.0,  52.0,  79.0,  29.0,  65.0,  29.0, 145.0];
+        var maxs = [113.0, 101.0, 113.0, 121.0,  45.0,  95.0,  60.0, 201.0];
+
+        var params = [
+            clamp(bust,      mins[0], maxs[0]),
+            clamp(underBust, mins[1], maxs[1]),
+            clamp(waist,     mins[2], maxs[2]),
+            clamp(hip,       mins[3], maxs[3]),
+            clamp(neckGirth, mins[4], maxs[4]),
+            clamp(insideLeg, mins[5], maxs[5]),
+            clamp(shoulder,  mins[6], maxs[6]),
+            clamp(hCm,       mins[7], maxs[7])
+        ];
+
+        // 3. Aplica — resetParams já atualiza sliders e regenera o mesh
+        resetParams(params);
+
+        // 4. Confirma para o app
+        if (window.ReactNativeWebView) {
+            window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'applied' }));
+        }
+    };
+
+    // Escuta mensagens do app React Native
     window.addEventListener('message', function(event) {
         try {
             var data = JSON.parse(event.data);
-            // main.js expõe um objeto global — precisamos ver o nome dele
-            // Etapa seguinte: inspecionar main.js para achar a variável certa
-            if (window._kcApplyMeasurements) {
+            if (data && window._kcApplyMeasurements) {
                 window._kcApplyMeasurements(data);
             }
         } catch(e) {
@@ -36,12 +85,13 @@
         }
     });
 
+    // Avisa o app que o WebGL está pronto
     window.addEventListener('load', function() {
         setTimeout(function() {
             if (window.ReactNativeWebView) {
                 window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'ready' }));
             }
-        }, 2000); // aguarda o WebGL inicializar
+        }, 2500);
     });
     </script>
 </body>
