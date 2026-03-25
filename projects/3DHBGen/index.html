@@ -1,37 +1,48 @@
 <!DOCTYPE html>
 <html>
 <head>
-
     <title>WebGL 3D Human Body Generator</title>
-
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/png" href="assets/app_icon.png">
-
-    <!-- 3D -->
     <script src="threejs/three.min.js"></script>
     <script src="threejs/Detector.js"></script>
     <script src="threejs/OrbitControls.js"></script>
     <script src="threejs/OBJExporter.js"></script>
-    <!-- math -->
     <script src="math/numeric-1.2.6.min.js"></script>
-    <!-- Data -->
     <script src="data/clothf.js"></script>
     <script src="data/clothm.js"></script>
     <script src="data/f.js"></script>
     <script src="data/m.js"></script>
-    <!-- UI -->
     <script src="yagui/yagui.js"></script>
-    <!-- CSS -->
     <link rel="stylesheet" type="text/css" href="css/yagui.css">
-
 </head>
 <body>
-
-    <div id='viewport'>
-    </div>
-
+    <div id='viewport'></div>
     <script type='text/javascript' src='main.js'></script>
 
+    <script>
+    // Aguarda main.js inicializar o modelo antes de escutar mensagens
+    window.addEventListener('message', function(event) {
+        try {
+            var data = JSON.parse(event.data);
+            // main.js expõe um objeto global — precisamos ver o nome dele
+            // Etapa seguinte: inspecionar main.js para achar a variável certa
+            if (window._kcApplyMeasurements) {
+                window._kcApplyMeasurements(data);
+            }
+        } catch(e) {
+            console.warn('KC parse error:', e);
+        }
+    });
+
+    window.addEventListener('load', function() {
+        setTimeout(function() {
+            if (window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'ready' }));
+            }
+        }, 2000); // aguarda o WebGL inicializar
+    });
+    </script>
 </body>
 </html>
