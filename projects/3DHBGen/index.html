@@ -16,64 +16,147 @@
     <script src="data/m.js"></script>
     <script src="yagui/yagui.js"></script>
     <link rel="stylesheet" type="text/css" href="css/yagui.css">
+
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: #1a1a1a;
+        }
+
+        #viewport {
+            width: 100vw;
+            height: 100vh;
+            position: fixed;
+            top: 0; left: 0;
+        }
+
+        /* Esconde TODA a interface do yagui:
+           topbar, sidebar direita, menus, botões */
+        .yagui-topbar,
+        .yagui-sidebar,
+        .yagui-sidebar-right,
+        .yagui-panel,
+        .yagui-menu,
+        .yagui-menubar,
+        [class*="yagui-top"],
+        [class*="yagui-right"],
+        [class*="yagui-sidebar"] {
+            display: none !important;
+            visibility: hidden !important;
+            width: 0 !important;
+            height: 0 !important;
+            overflow: hidden !important;
+            pointer-events: none !important;
+        }
+
+        /* Garante que o canvas WebGL ocupa tela toda */
+        canvas {
+            width: 100vw !important;
+            height: 100vh !important;
+            display: block !important;
+        }
+    </style>
 </head>
 <body>
     <div id='viewport'></div>
     <script type='text/javascript' src='main.js'></script>
 
     <script>
-    // Limita um valor entre min e max
+    // Aguarda o yagui renderizar e então remove os elementos da UI
+    function hideGUI() {
+        // Seletores comuns do yagui — remove tudo que não é o canvas
+        var selectors = [
+            '.yagui-topbar',
+            '.yagui-sidebar',
+            '.yagui-panel',
+            'nav',
+            '[class*="sidebar"]',
+            '[class*="topbar"]',
+            '[class*="menu"]',
+            '[class*="panel"]',
+            '[class*="gui"]'
+        ];
+        selectors.forEach(function(sel) {
+            var els = document.querySelectorAll(sel);
+            els.forEach(function(el) {
+                el.style.display    = 'none';
+                el.style.visibility = 'hidden';
+                el.style.width      = '0';
+                el.style.height     = '0';
+                el.style.overflow   = 'hidden';
+            });
+        });
+
+        // Força o canvas a ocupar tela inteira
+        var canvases = document.querySelectorAll('canvas');
+        canvases.forEach(function(c) {
+            c.style.width  = '100vw';
+            c.style.height = '100vh';
+            c.style.position = 'fixed';
+            c.style.top  = '0';
+            c.style.left = '0';
+        });
+
+        // Dispara resize para o Three.js recalcular o aspect ratio
+        window.dispatchEvent(new Event('resize'));
+    }
+
+    // Executa após o yagui montar (100ms é suficiente)
+    setTimeout(hideGUI, 100);
+    // Executa novamente para garantir após animações
+    setTimeout(hideGUI, 600);
+
+    // ─── Integração com o App React Native ───────────────────────
     function clamp(val, min, max) {
         return Math.max(min, Math.min(max, val));
     }
 
-    // Chamada pelo app React Native com os dados do aluno
     window._kcApplyMeasurements = function(data) {
-        // 1. Define o gênero
         var genderVal = (data.gender === 'male') ? 1 : 0;
         setGender(genderVal);
 
-        var isMale = (genderVal === 1);
+        var isMale   = (genderVal === 1);
         var defaults = isMale
             ? [90.6, 86.7, 81.2, 95.2, 38.5, 77.1, 37.7, 174.0]
             : [90.4, 80.6, 80.2, 98.3, 33.4, 76.3, 36.6, 168.0];
 
-        var h   = parseFloat(data.height) || (defaults[7] / 100); // metros
-        var hCm = h * 100; // converte para cm
+        var hCm      = (parseFloat(data.height) || (defaults[7] / 100)) * 100;
+        var bust     = parseFloat(data.bust)     || defaults[0];
+        var underBust= bust * 0.88;
+        var waist    = parseFloat(data.waist)    || defaults[2];
+        var hip      = parseFloat(data.hip)      || defaults[3];
+        var shoulder = parseFloat(data.shoulder) || defaults[6];
+        var insideLeg= hCm * 0.45;
+        var neckGirth= defaults[4];
 
-        var bust      = parseFloat(data.bust)    || defaults[0];
-        var underBust = bust * 0.88;              // estimado
-        var waist     = parseFloat(data.waist)   || defaults[2];
-        var hip       = parseFloat(data.hip)     || defaults[3];
-        var neckGirth = defaults[4];              // sem campo no KC
-        var insideLeg = hCm * 0.45;              // estimado pela altura
-        var shoulder  = parseFloat(data.shoulder)|| defaults[6];
-
-        // 2. Monta o array respeitando os limites do modelo
         var mins = [ 79.0,  70.0,  52.0,  79.0,  29.0,  65.0,  29.0, 145.0];
         var maxs = [113.0, 101.0, 113.0, 121.0,  45.0,  95.0,  60.0, 201.0];
 
         var params = [
-            clamp(bust,      mins[0], maxs[0]),
-            clamp(underBust, mins[1], maxs[1]),
-            clamp(waist,     mins[2], maxs[2]),
-            clamp(hip,       mins[3], maxs[3]),
-            clamp(neckGirth, mins[4], maxs[4]),
-            clamp(insideLeg, mins[5], maxs[5]),
-            clamp(shoulder,  mins[6], maxs[6]),
-            clamp(hCm,       mins[7], maxs[7])
+            clamp(bust,       mins[0], maxs[0]),
+            clamp(underBust,  mins[1], maxs[1]),
+            clamp(waist,      mins[2], maxs[2]),
+            clamp(hip,        mins[3], maxs[3]),
+            clamp(neckGirth,  mins[4], maxs[4]),
+            clamp(insideLeg,  mins[5], maxs[5]),
+            clamp(shoulder,   mins[6], maxs[6]),
+            clamp(hCm,        mins[7], maxs[7])
         ];
 
-        // 3. Aplica — resetParams já atualiza sliders e regenera o mesh
         resetParams(params);
 
-        // 4. Confirma para o app
+        // Esconde a GUI novamente após o reset (que pode recriar elementos)
+        setTimeout(hideGUI, 50);
+
         if (window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'applied' }));
         }
     };
 
-    // Escuta mensagens do app React Native
     window.addEventListener('message', function(event) {
         try {
             var data = JSON.parse(event.data);
@@ -85,9 +168,9 @@
         }
     });
 
-    // Avisa o app que o WebGL está pronto
     window.addEventListener('load', function() {
         setTimeout(function() {
+            hideGUI();
             if (window.ReactNativeWebView) {
                 window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'ready' }));
             }
