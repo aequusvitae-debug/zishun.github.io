@@ -18,10 +18,9 @@
     <link rel="stylesheet" type="text/css" href="css/yagui.css">
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        html, body { width:100%; height:100%; overflow:hidden; background:#ebebeb; }
+        html, body { width:100%; height:100%; overflow:hidden; background:#e8e8e8; }
         #viewport { width:100vw; height:100vh; position:fixed; top:0; left:0; }
 
-        /* Esconde toda a GUI yagui */
         .yagui-topbar,.yagui-sidebar,.yagui-sidebar-right,
         .yagui-panel,.yagui-menu,.yagui-menubar,
         [class*="yagui-top"],[class*="yagui-right"],[class*="yagui-sidebar"] {
@@ -31,38 +30,55 @@
         }
         canvas { width:100vw!important; height:100vh!important; display:block!important; }
 
-        /* ── Overlay de labels ── */
         #labels-overlay {
             position:fixed; top:0; left:0;
             width:100vw; height:100vh;
             pointer-events:none; z-index:100;
         }
+
+        /* ── Label principal ── */
         .lbl {
             position:absolute;
             pointer-events:none;
             display:flex; flex-direction:column; align-items:center;
             transform:translate(-50%,-50%);
-            transition: opacity 0.15s;
         }
+
+        /* Pill com fundo semitransparente escuro — legível em qualquer fundo */
+        .lbl-pill {
+            display:flex; flex-direction:column; align-items:center;
+            background: rgba(20,14,0,0.72);
+            border: 1px solid rgba(212,160,23,0.6);
+            border-radius: 7px;
+            padding: 3px 8px 2px;
+            backdrop-filter: blur(2px);
+        }
+
         .lbl-val {
-            color:#D4A017;
-            font:800 16px/-apple-system,'Helvetica Neue',sans-serif;
-            font-family:-apple-system,'Helvetica Neue',sans-serif;
-            font-size:16px; font-weight:800;
-            white-space:nowrap;
-            text-shadow:0 0 8px rgba(0,0,0,1),0 0 16px rgba(0,0,0,0.8),1px 1px 0 rgba(0,0,0,1);
+            color: #FFC107;
+            font-family: -apple-system,'Helvetica Neue',sans-serif;
+            font-size: 14px;
+            font-weight: 800;
+            white-space: nowrap;
+            line-height: 1.2;
+            letter-spacing: 0.2px;
         }
+
         .lbl-name {
-            color:rgba(212,160,23,0.6);
-            font-family:-apple-system,'Helvetica Neue',sans-serif;
-            font-size:8px; font-weight:700;
-            letter-spacing:0.6px; text-transform:uppercase; margin-top:1px;
-            text-shadow:0 1px 4px rgba(0,0,0,1);
+            color: rgba(255,193,7,0.75);
+            font-family: -apple-system,'Helvetica Neue',sans-serif;
+            font-size: 8px;
+            font-weight: 700;
+            letter-spacing: 0.8px;
+            text-transform: uppercase;
+            line-height: 1.2;
         }
-        /* Linha lateral conectora */
+
+        /* Linha conectora lateral */
         .lbl-line {
-            height:1px; background:rgba(212,160,23,0.45);
-            margin-bottom:3px;
+            height: 1px;
+            background: rgba(255,193,7,0.5);
+            margin-bottom: 3px;
         }
     </style>
 </head>
@@ -73,7 +89,6 @@
     <script>
     'use strict';
 
-    // ── Medidas recebidas do app ──────────────────────────────────
     var KC = {
         ombros:null, peito:null, cintura:null, abdomen:null, quadril:null,
         bicepsDir:null, bicepsEsq:null,
@@ -81,47 +96,45 @@
         panturrilhaDir:null, panturrilhaEsq:null,
     };
 
-    // ── Definição das âncoras ─────────────────────────────────────
-    // ry = fracção da altura do modelo (0=chão, 1=topo da cabeça)
-    // Para vista FRONTAL (câmera em z+):
-    //   rx positivo = direita na tela, negativo = esquerda na tela
-    //   rz: sempre um pequeno valor frontal
-    // pxOffset: deslocamento extra em pixels após projeção (para afastar do centro)
+    // ── Âncoras calibradas para vista frontal ─────────────────────
     var ANCHORS = [
-        // ── Tronco: coluna central ──
         { key:'ombros',          name:'Ombros',   ry:0.795, rx: 0.00, rz:0.15, pxX:  0 },
         { key:'peito',           name:'Peito',    ry:0.715, rx: 0.00, rz:0.20, pxX:  0 },
         { key:'cintura',         name:'Cintura',  ry:0.605, rx: 0.00, rz:0.15, pxX:  0 },
         { key:'abdomen',         name:'Abdômen',  ry:0.535, rx: 0.00, rz:0.16, pxX:  0 },
         { key:'quadril',         name:'Quadril',  ry:0.462, rx: 0.00, rz:0.17, pxX:  0 },
-        // ── Membros: laterais bem afastados ──
-        { key:'bicepsDir',       name:'Bíceps D', ry:0.715, rx:-0.22, rz:0.00, pxX:-20 },
-        { key:'bicepsEsq',       name:'Bíceps E', ry:0.715, rx: 0.22, rz:0.00, pxX: 20 },
-        { key:'coxaDir',         name:'Coxa D',   ry:0.328, rx:-0.15, rz:0.14, pxX:-16 },
-        { key:'coxaEsq',         name:'Coxa E',   ry:0.328, rx: 0.15, rz:0.14, pxX: 16 },
-        { key:'panturrilhaDir',  name:'Pant. D',  ry:0.173, rx:-0.11, rz:0.12, pxX:-14 },
-        { key:'panturrilhaEsq',  name:'Pant. E',  ry:0.173, rx: 0.11, rz:0.12, pxX: 14 },
+        { key:'bicepsDir',       name:'Bíceps D', ry:0.715, rx:-0.22, rz:0.00, pxX:-14 },
+        { key:'bicepsEsq',       name:'Bíceps E', ry:0.715, rx: 0.22, rz:0.00, pxX: 14 },
+        { key:'coxaDir',         name:'Coxa D',   ry:0.328, rx:-0.15, rz:0.14, pxX:-12 },
+        { key:'coxaEsq',         name:'Coxa E',   ry:0.328, rx: 0.15, rz:0.14, pxX: 12 },
+        { key:'panturrilhaDir',  name:'Pant. D',  ry:0.173, rx:-0.11, rz:0.12, pxX:-12 },
+        { key:'panturrilhaEsq',  name:'Pant. E',  ry:0.173, rx: 0.11, rz:0.12, pxX: 12 },
     ];
 
-    // ── Cria elementos DOM ────────────────────────────────────────
     var lblEls = {};
     var overlay = document.getElementById('labels-overlay');
 
     ANCHORS.forEach(function(a) {
-        var w = document.createElement('div'); w.className = 'lbl'; w.id = 'lbl-'+a.key;
+        var w = document.createElement('div');
+        w.className = 'lbl'; w.id = 'lbl-'+a.key;
 
-        // Linha lateral para membros
+        // Linha conectora para membros laterais
         if (a.rx !== 0) {
             var line = document.createElement('div');
             line.className = 'lbl-line';
-            line.style.width = '16px';
-            if (a.rx < 0) line.style.marginLeft = '0'; else line.style.marginRight = '0';
+            line.style.width = '14px';
             w.appendChild(line);
         }
 
+        // Pill
+        var pill = document.createElement('div');
+        pill.className = 'lbl-pill';
+
         var v = document.createElement('div'); v.className = 'lbl-val'; v.textContent = '--';
         var n = document.createElement('div'); n.className = 'lbl-name'; n.textContent = a.name;
-        w.appendChild(v); w.appendChild(n);
+
+        pill.appendChild(v); pill.appendChild(n);
+        w.appendChild(pill);
 
         overlay.appendChild(w);
         lblEls[a.key] = { w:w, v:v };
@@ -133,12 +146,11 @@
             var el  = lblEls[a.key];
             if (!el) return;
             var ok = val && parseFloat(val) > 0;
-            el.v.textContent  = ok ? val + ' cm' : '--';
-            el.w.style.opacity = ok ? '1' : '0.2';
+            el.v.textContent   = ok ? val + ' cm' : '--';
+            el.w.style.opacity = ok ? '1' : '0.35';
         });
     }
 
-    // ── Projeta 3D → 2D a cada frame ─────────────────────────────
     function project() {
         if (!MESH || !CAMERA || !RENDERER) return;
         var bbox = new THREE.Box3().setFromObject(MESH);
@@ -150,7 +162,7 @@
 
         ANCHORS.forEach(function(a) {
             var el = lblEls[a.key]; if (!el) return;
-            var p = new THREE.Vector3(
+            var p  = new THREE.Vector3(
                 cx + a.rx * mH,
                 bbox.min.y + a.ry * mH,
                 cz + a.rz * mH
@@ -158,8 +170,8 @@
 
             if (p.z > 1) { el.w.style.display='none'; return; }
             el.w.style.display = 'flex';
-            el.w.style.left    = ( p.x * 0.5 + 0.5) * W + a.pxX + 'px';
-            el.w.style.top     = (-p.y * 0.5 + 0.5) * H + 'px';
+            el.w.style.left    = ( p.x*0.5+0.5)*W + a.pxX + 'px';
+            el.w.style.top     = (-p.y*0.5+0.5)*H + 'px';
         });
     }
 
@@ -170,20 +182,16 @@
         } else { setTimeout(hookRender, 100); }
     }
 
-    // ── Reset câmera para vista frontal ───────────────────────────
     function setCameraFrontal() {
         if (!CAMERA || !CONTROLS || !MESH) { setTimeout(setCameraFrontal, 200); return; }
         var bbox = new THREE.Box3().setFromObject(MESH);
         var cy   = (bbox.max.y + bbox.min.y) / 2;
         var mH   = bbox.max.y - bbox.min.y;
-
-        // Posição frontal: z positivo, altura do centro do modelo
         CAMERA.position.set(0, cy, mH * 1.5);
         CONTROLS.target.set(0, cy * 0.9, 0);
         CONTROLS.update();
     }
 
-    // ── Esconde GUI ───────────────────────────────────────────────
     function hideGUI() {
         var ss = ['.yagui-topbar','.yagui-sidebar','.yagui-panel',
                   'nav','[class*="sidebar"]','[class*="topbar"]',
@@ -202,7 +210,6 @@
 
     function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 
-    // ── Aplica medidas vindas do app ──────────────────────────────
     window._kcApply = function(data) {
         KC.ombros         = data.shoulder      ? String(Math.round(data.shoulder))      : null;
         KC.peito          = data.bust          ? String(Math.round(data.bust))          : null;
@@ -218,10 +225,10 @@
 
         updateValues();
 
-        var gv    = data.gender==='male' ? 1 : 0;
-        var isMale= gv===1;
+        var gv = data.gender==='male' ? 1 : 0;
         setGender(gv);
 
+        var isMale = gv===1;
         var def = isMale
             ? [90.6,86.7,81.2,95.2,38.5,77.1,37.7,174.0]
             : [90.4,80.6,80.2,98.3,33.4,76.3,36.6,168.0];
@@ -233,21 +240,20 @@
         var s   = parseFloat(data.shoulder)||def[6];
 
         resetParams([
-            clamp(b,      79,113),
-            clamp(b*0.88, 70,101),
-            clamp(w,      52,113),
-            clamp(h,      79,121),
-            clamp(def[4], 29, 45),
-            clamp(hCm*.45,65, 95),
-            clamp(s,      29, 60),
-            clamp(hCm,   145,201),
+            clamp(b,       79,113),
+            clamp(b*0.88,  70,101),
+            clamp(w,       52,113),
+            clamp(h,       79,121),
+            clamp(def[4],  29, 45),
+            clamp(hCm*.45, 65, 95),
+            clamp(s,       29, 60),
+            clamp(hCm,    145,201),
         ]);
 
-        // Ativa curvas de medida
+        // Só ativa as 5 curvas que o modelo suporta
         MEASURE_CURVES.visible = true;
         redrawCurves();
 
-        // Reset câmera para frontal após gerar o modelo
         setTimeout(setCameraFrontal, 150);
         setTimeout(hideGUI, 80);
 
@@ -256,7 +262,6 @@
         }
     };
 
-    // compat com versão anterior
     window._kcApplyMeasurements = window._kcApply;
 
     window.addEventListener('message', function(e) {
