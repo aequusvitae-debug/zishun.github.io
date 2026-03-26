@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>WebGL 3D Human Body Generator</title>
+    <title>KC Personal – 3D Body</title>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/png" href="assets/app_icon.png">
@@ -16,294 +16,267 @@
     <script src="data/m.js"></script>
     <script src="yagui/yagui.js"></script>
     <link rel="stylesheet" type="text/css" href="css/yagui.css">
-
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body { width: 100%; height: 100%; overflow: hidden; background: #f0f0f0; }
+        * { margin:0; padding:0; box-sizing:border-box; }
+        html, body { width:100%; height:100%; overflow:hidden; background:#ebebeb; }
+        #viewport { width:100vw; height:100vh; position:fixed; top:0; left:0; }
 
-        #viewport { width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; }
-
-        /* Esconde toda a interface yagui */
-        .yagui-topbar, .yagui-sidebar, .yagui-sidebar-right,
-        .yagui-panel, .yagui-menu, .yagui-menubar,
-        [class*="yagui-top"], [class*="yagui-right"], [class*="yagui-sidebar"] {
-            display: none !important; visibility: hidden !important;
-            width: 0 !important; height: 0 !important;
-            overflow: hidden !important; pointer-events: none !important;
+        /* Esconde toda a GUI yagui */
+        .yagui-topbar,.yagui-sidebar,.yagui-sidebar-right,
+        .yagui-panel,.yagui-menu,.yagui-menubar,
+        [class*="yagui-top"],[class*="yagui-right"],[class*="yagui-sidebar"] {
+            display:none!important; visibility:hidden!important;
+            width:0!important; height:0!important;
+            overflow:hidden!important; pointer-events:none!important;
         }
+        canvas { width:100vw!important; height:100vh!important; display:block!important; }
 
-        canvas { width: 100vw !important; height: 100vh !important; display: block !important; }
-
-        /* ── Labels flutuantes ── */
+        /* ── Overlay de labels ── */
         #labels-overlay {
-            position: fixed; top: 0; left: 0;
-            width: 100vw; height: 100vh;
-            pointer-events: none; z-index: 100;
+            position:fixed; top:0; left:0;
+            width:100vw; height:100vh;
+            pointer-events:none; z-index:100;
         }
-
-        .body-label {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            display: flex; flex-direction: column; align-items: center;
-            pointer-events: none;
-            transition: left 0.1s, top 0.1s, opacity 0.2s;
+        .lbl {
+            position:absolute;
+            pointer-events:none;
+            display:flex; flex-direction:column; align-items:center;
+            transform:translate(-50%,-50%);
+            transition: opacity 0.15s;
         }
-
-        /* Valor numérico — dourado sem fundo, igual à imagem de referência */
-        .body-label-value {
-            color: #D4A017;
-            font-family: -apple-system, 'Helvetica Neue', sans-serif;
-            font-size: 15px;
-            font-weight: 800;
-            white-space: nowrap;
-            text-shadow:
-                0 0 6px rgba(0,0,0,0.9),
-                0 0 12px rgba(0,0,0,0.7),
-                1px 1px 0 rgba(0,0,0,0.8);
-            letter-spacing: 0.3px;
+        .lbl-val {
+            color:#D4A017;
+            font:800 16px/-apple-system,'Helvetica Neue',sans-serif;
+            font-family:-apple-system,'Helvetica Neue',sans-serif;
+            font-size:16px; font-weight:800;
+            white-space:nowrap;
+            text-shadow:0 0 8px rgba(0,0,0,1),0 0 16px rgba(0,0,0,0.8),1px 1px 0 rgba(0,0,0,1);
         }
-
-        /* Nome da medida — menor, abaixo */
-        .body-label-name {
-            color: rgba(212, 160, 23, 0.65);
-            font-family: -apple-system, 'Helvetica Neue', sans-serif;
-            font-size: 8px;
-            font-weight: 600;
-            margin-top: 1px;
-            text-shadow: 0 1px 4px rgba(0,0,0,1);
-            letter-spacing: 0.5px;
-            text-transform: uppercase;
+        .lbl-name {
+            color:rgba(212,160,23,0.6);
+            font-family:-apple-system,'Helvetica Neue',sans-serif;
+            font-size:8px; font-weight:700;
+            letter-spacing:0.6px; text-transform:uppercase; margin-top:1px;
+            text-shadow:0 1px 4px rgba(0,0,0,1);
         }
-
-        /* Linha lateral conectora (para bíceps/coxa/panturrilha) */
-        .body-label-connector {
-            width: 18px; height: 1px;
-            background: rgba(212, 160, 23, 0.5);
-            margin-bottom: 3px;
+        /* Linha lateral conectora */
+        .lbl-line {
+            height:1px; background:rgba(212,160,23,0.45);
+            margin-bottom:3px;
         }
     </style>
 </head>
 <body>
-    <div id='viewport'></div>
-    <div id='labels-overlay'></div>
-
-    <script type='text/javascript' src='main.js'></script>
-
+    <div id="viewport"></div>
+    <div id="labels-overlay"></div>
+    <script src="main.js"></script>
     <script>
     'use strict';
 
-    // ─── Medidas recebidas do app ─────────────────────────────────
-    var KC_MEASUREMENTS = {
-        ombros: null, peito: null, cintura: null, abdomen: null, quadril: null,
-        bicepsDir: null, bicepsEsq: null,
-        coxaDir: null, coxaEsq: null,
-        panturrilhaDir: null, panturrilhaEsq: null,
+    // ── Medidas recebidas do app ──────────────────────────────────
+    var KC = {
+        ombros:null, peito:null, cintura:null, abdomen:null, quadril:null,
+        bicepsDir:null, bicepsEsq:null,
+        coxaDir:null, coxaEsq:null,
+        panturrilhaDir:null, panturrilhaEsq:null,
     };
 
-    // ─── Âncoras 3D calibradas ────────────────────────────────────
-    // ry = fração da altura do modelo a partir do chão (0=chão, 1=topo)
-    // rx = deslocamento horizontal em frações da altura (0=centro)
-    // rz = profundidade frontal
-    // side: 'center' | 'left' | 'right'
-    var LABEL_ANCHORS = [
-        // Tronco central — empilhados verticalmente, sem sobreposição
-        { key: 'ombros',   name: 'Ombros',   ry: 0.795, rx:  0.00, rz: 0.16, side: 'center' },
-        { key: 'peito',    name: 'Peito',    ry: 0.720, rx:  0.00, rz: 0.20, side: 'center' },
-        { key: 'cintura',  name: 'Cintura',  ry: 0.610, rx:  0.00, rz: 0.16, side: 'center' },
-        { key: 'abdomen',  name: 'Abdômen',  ry: 0.540, rx:  0.00, rz: 0.17, side: 'center' },
-        { key: 'quadril',  name: 'Quadril',  ry: 0.465, rx:  0.00, rz: 0.18, side: 'center' },
-        // Membros — esquerda e direita, evitando sobreposição com centro
-        { key: 'bicepsDir',      name: 'Bíceps D',  ry: 0.720, rx: -0.21, rz: 0.04, side: 'left'   },
-        { key: 'bicepsEsq',      name: 'Bíceps E',  ry: 0.720, rx:  0.21, rz: 0.04, side: 'right'  },
-        { key: 'coxaDir',        name: 'Coxa D',    ry: 0.330, rx: -0.14, rz: 0.15, side: 'left'   },
-        { key: 'coxaEsq',        name: 'Coxa E',    ry: 0.330, rx:  0.14, rz: 0.15, side: 'right'  },
-        { key: 'panturrilhaDir', name: 'Pant. D',   ry: 0.175, rx: -0.10, rz: 0.13, side: 'left'   },
-        { key: 'panturrilhaEsq', name: 'Pant. E',   ry: 0.175, rx:  0.10, rz: 0.13, side: 'right'  },
+    // ── Definição das âncoras ─────────────────────────────────────
+    // ry = fracção da altura do modelo (0=chão, 1=topo da cabeça)
+    // Para vista FRONTAL (câmera em z+):
+    //   rx positivo = direita na tela, negativo = esquerda na tela
+    //   rz: sempre um pequeno valor frontal
+    // pxOffset: deslocamento extra em pixels após projeção (para afastar do centro)
+    var ANCHORS = [
+        // ── Tronco: coluna central ──
+        { key:'ombros',          name:'Ombros',   ry:0.795, rx: 0.00, rz:0.15, pxX:  0 },
+        { key:'peito',           name:'Peito',    ry:0.715, rx: 0.00, rz:0.20, pxX:  0 },
+        { key:'cintura',         name:'Cintura',  ry:0.605, rx: 0.00, rz:0.15, pxX:  0 },
+        { key:'abdomen',         name:'Abdômen',  ry:0.535, rx: 0.00, rz:0.16, pxX:  0 },
+        { key:'quadril',         name:'Quadril',  ry:0.462, rx: 0.00, rz:0.17, pxX:  0 },
+        // ── Membros: laterais bem afastados ──
+        { key:'bicepsDir',       name:'Bíceps D', ry:0.715, rx:-0.22, rz:0.00, pxX:-20 },
+        { key:'bicepsEsq',       name:'Bíceps E', ry:0.715, rx: 0.22, rz:0.00, pxX: 20 },
+        { key:'coxaDir',         name:'Coxa D',   ry:0.328, rx:-0.15, rz:0.14, pxX:-16 },
+        { key:'coxaEsq',         name:'Coxa E',   ry:0.328, rx: 0.15, rz:0.14, pxX: 16 },
+        { key:'panturrilhaDir',  name:'Pant. D',  ry:0.173, rx:-0.11, rz:0.12, pxX:-14 },
+        { key:'panturrilhaEsq',  name:'Pant. E',  ry:0.173, rx: 0.11, rz:0.12, pxX: 14 },
     ];
 
-    // ─── Cria elementos DOM ───────────────────────────────────────
-    var labelEls = {};
-    var overlay  = document.getElementById('labels-overlay');
+    // ── Cria elementos DOM ────────────────────────────────────────
+    var lblEls = {};
+    var overlay = document.getElementById('labels-overlay');
 
-    LABEL_ANCHORS.forEach(function(a) {
-        var wrap = document.createElement('div');
-        wrap.className = 'body-label';
-        wrap.id = 'label-' + a.key;
+    ANCHORS.forEach(function(a) {
+        var w = document.createElement('div'); w.className = 'lbl'; w.id = 'lbl-'+a.key;
 
-        // Linha conectora apenas para membros laterais
-        if (a.side !== 'center') {
-            var conn = document.createElement('div');
-            conn.className = 'body-label-connector';
-            if (a.side === 'right') conn.style.transform = 'scaleX(-1)';
-            wrap.appendChild(conn);
+        // Linha lateral para membros
+        if (a.rx !== 0) {
+            var line = document.createElement('div');
+            line.className = 'lbl-line';
+            line.style.width = '16px';
+            if (a.rx < 0) line.style.marginLeft = '0'; else line.style.marginRight = '0';
+            w.appendChild(line);
         }
 
-        var valEl  = document.createElement('div');
-        valEl.className = 'body-label-value';
-        valEl.textContent = '--';
-        wrap.appendChild(valEl);
+        var v = document.createElement('div'); v.className = 'lbl-val'; v.textContent = '--';
+        var n = document.createElement('div'); n.className = 'lbl-name'; n.textContent = a.name;
+        w.appendChild(v); w.appendChild(n);
 
-        var nameEl = document.createElement('div');
-        nameEl.className = 'body-label-name';
-        nameEl.textContent = a.name;
-        wrap.appendChild(nameEl);
-
-        overlay.appendChild(wrap);
-        labelEls[a.key] = { wrap: wrap, valEl: valEl };
+        overlay.appendChild(w);
+        lblEls[a.key] = { w:w, v:v };
     });
 
-    // ─── Atualiza textos das labels ───────────────────────────────
-    function updateLabelValues() {
-        LABEL_ANCHORS.forEach(function(a) {
-            var val = KC_MEASUREMENTS[a.key];
-            var el  = labelEls[a.key];
+    function updateValues() {
+        ANCHORS.forEach(function(a) {
+            var val = KC[a.key];
+            var el  = lblEls[a.key];
             if (!el) return;
-            var hasVal = val && parseFloat(val) > 0;
-            el.valEl.textContent       = hasVal ? val + ' cm' : '--';
-            el.wrap.style.opacity      = hasVal ? '1' : '0.25';
+            var ok = val && parseFloat(val) > 0;
+            el.v.textContent  = ok ? val + ' cm' : '--';
+            el.w.style.opacity = ok ? '1' : '0.2';
         });
     }
 
-    // ─── Projeta posições 3D → pixels na tela ────────────────────
-    function projectLabels() {
+    // ── Projeta 3D → 2D a cada frame ─────────────────────────────
+    function project() {
         if (!MESH || !CAMERA || !RENDERER) return;
+        var bbox = new THREE.Box3().setFromObject(MESH);
+        var mH   = bbox.max.y - bbox.min.y;
+        var cx   = (bbox.max.x + bbox.min.x) / 2;
+        var cz   = (bbox.max.z + bbox.min.z) / 2;
+        var W    = RENDERER.domElement.clientWidth  || window.innerWidth;
+        var H    = RENDERER.domElement.clientHeight || window.innerHeight;
 
-        var bbox   = new THREE.Box3().setFromObject(MESH);
-        var modelH = bbox.max.y - bbox.min.y;
-        var cx     = (bbox.max.x + bbox.min.x) / 2;
-        var cz     = (bbox.max.z + bbox.min.z) / 2;
+        ANCHORS.forEach(function(a) {
+            var el = lblEls[a.key]; if (!el) return;
+            var p = new THREE.Vector3(
+                cx + a.rx * mH,
+                bbox.min.y + a.ry * mH,
+                cz + a.rz * mH
+            ).project(CAMERA);
 
-        var W = RENDERER.domElement.clientWidth  || window.innerWidth;
-        var H = RENDERER.domElement.clientHeight || window.innerHeight;
-
-        LABEL_ANCHORS.forEach(function(a) {
-            var el = labelEls[a.key];
-            if (!el) return;
-
-            var worldPos = new THREE.Vector3(
-                cx + a.rx * modelH,
-                bbox.min.y + a.ry * modelH,
-                cz + a.rz * modelH
-            );
-
-            var proj = worldPos.clone().project(CAMERA);
-
-            if (proj.z > 1) { el.wrap.style.display = 'none'; return; }
-
-            el.wrap.style.display = 'flex';
-            el.wrap.style.left    = ( proj.x * 0.5 + 0.5) * W + 'px';
-            el.wrap.style.top     = (-proj.y * 0.5 + 0.5) * H + 'px';
+            if (p.z > 1) { el.w.style.display='none'; return; }
+            el.w.style.display = 'flex';
+            el.w.style.left    = ( p.x * 0.5 + 0.5) * W + a.pxX + 'px';
+            el.w.style.top     = (-p.y * 0.5 + 0.5) * H + 'px';
         });
     }
 
-    // ─── Hook no loop de render ───────────────────────────────────
-    function hookRenderLoop() {
-        if (typeof render === 'function' && typeof RENDERER !== 'undefined') {
+    function hookRender() {
+        if (typeof render==='function' && typeof RENDERER!=='undefined') {
             var orig = render;
-            window.render = function() { orig(); projectLabels(); };
-        } else {
-            setTimeout(hookRenderLoop, 100);
-        }
+            window.render = function(){ orig(); project(); };
+        } else { setTimeout(hookRender, 100); }
     }
 
-    // ─── Esconde GUI yagui ────────────────────────────────────────
+    // ── Reset câmera para vista frontal ───────────────────────────
+    function setCameraFrontal() {
+        if (!CAMERA || !CONTROLS || !MESH) { setTimeout(setCameraFrontal, 200); return; }
+        var bbox = new THREE.Box3().setFromObject(MESH);
+        var cy   = (bbox.max.y + bbox.min.y) / 2;
+        var mH   = bbox.max.y - bbox.min.y;
+
+        // Posição frontal: z positivo, altura do centro do modelo
+        CAMERA.position.set(0, cy, mH * 1.5);
+        CONTROLS.target.set(0, cy * 0.9, 0);
+        CONTROLS.update();
+    }
+
+    // ── Esconde GUI ───────────────────────────────────────────────
     function hideGUI() {
-        var sels = ['.yagui-topbar','.yagui-sidebar','.yagui-panel',
-                    'nav','[class*="sidebar"]','[class*="topbar"]',
-                    '[class*="menu"]','[class*="panel"]','[class*="gui"]'];
-        sels.forEach(function(s) {
-            document.querySelectorAll(s).forEach(function(el) {
-                el.style.cssText = 'display:none!important;visibility:hidden!important;width:0!important;height:0!important;overflow:hidden!important;';
+        var ss = ['.yagui-topbar','.yagui-sidebar','.yagui-panel',
+                  'nav','[class*="sidebar"]','[class*="topbar"]',
+                  '[class*="menu"]','[class*="panel"]','[class*="gui"]'];
+        ss.forEach(function(s){
+            document.querySelectorAll(s).forEach(function(el){
+                el.style.cssText='display:none!important;visibility:hidden!important;width:0!important;height:0!important;overflow:hidden!important;';
             });
         });
-        document.querySelectorAll('canvas').forEach(function(c) {
-            c.style.width = '100vw'; c.style.height = '100vh';
-            c.style.position = 'fixed'; c.style.top = '0'; c.style.left = '0';
+        document.querySelectorAll('canvas').forEach(function(c){
+            c.style.width='100vw'; c.style.height='100vh';
+            c.style.position='fixed'; c.style.top='0'; c.style.left='0';
         });
         window.dispatchEvent(new Event('resize'));
     }
 
-    function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
+    function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 
-    // ─── Recebe medidas do app e aplica ao modelo ─────────────────
-    window._kcApplyMeasurements = function(data) {
-        // Salva para as labels
-        KC_MEASUREMENTS.ombros        = data.shoulder   ? String(Math.round(data.shoulder))   : null;
-        KC_MEASUREMENTS.peito         = data.bust       ? String(Math.round(data.bust))       : null;
-        KC_MEASUREMENTS.cintura       = data.waist      ? String(Math.round(data.waist))      : null;
-        KC_MEASUREMENTS.abdomen       = data.abdomen    ? String(Math.round(data.abdomen))    : null;
-        KC_MEASUREMENTS.quadril       = data.hip        ? String(Math.round(data.hip))        : null;
-        KC_MEASUREMENTS.bicepsDir     = data.bicepsDir  ? String(Math.round(data.bicepsDir))  : null;
-        KC_MEASUREMENTS.bicepsEsq     = data.bicepsEsq  ? String(Math.round(data.bicepsEsq))  : null;
-        KC_MEASUREMENTS.coxaDir       = data.coxaDir    ? String(Math.round(data.coxaDir))    : null;
-        KC_MEASUREMENTS.coxaEsq       = data.coxaEsq    ? String(Math.round(data.coxaEsq))    : null;
-        KC_MEASUREMENTS.panturrilhaDir = data.panturrilhaDir ? String(Math.round(data.panturrilhaDir)) : null;
-        KC_MEASUREMENTS.panturrilhaEsq = data.panturrilhaEsq ? String(Math.round(data.panturrilhaEsq)) : null;
+    // ── Aplica medidas vindas do app ──────────────────────────────
+    window._kcApply = function(data) {
+        KC.ombros         = data.shoulder      ? String(Math.round(data.shoulder))      : null;
+        KC.peito          = data.bust          ? String(Math.round(data.bust))          : null;
+        KC.cintura        = data.waist         ? String(Math.round(data.waist))         : null;
+        KC.abdomen        = data.abdomen       ? String(Math.round(data.abdomen))       : null;
+        KC.quadril        = data.hip           ? String(Math.round(data.hip))           : null;
+        KC.bicepsDir      = data.bicepsDir     ? String(Math.round(data.bicepsDir))     : null;
+        KC.bicepsEsq      = data.bicepsEsq     ? String(Math.round(data.bicepsEsq))     : null;
+        KC.coxaDir        = data.coxaDir       ? String(Math.round(data.coxaDir))       : null;
+        KC.coxaEsq        = data.coxaEsq       ? String(Math.round(data.coxaEsq))       : null;
+        KC.panturrilhaDir = data.panturrilhaDir ? String(Math.round(data.panturrilhaDir)) : null;
+        KC.panturrilhaEsq = data.panturrilhaEsq ? String(Math.round(data.panturrilhaEsq)) : null;
 
-        updateLabelValues();
+        updateValues();
 
-        // Aplica ao modelo 3D
-        var genderVal = data.gender === 'male' ? 1 : 0;
-        setGender(genderVal);
+        var gv    = data.gender==='male' ? 1 : 0;
+        var isMale= gv===1;
+        setGender(gv);
 
-        var isMale   = genderVal === 1;
-        var def      = isMale
-            ? [90.6, 86.7, 81.2, 95.2, 38.5, 77.1, 37.7, 174.0]
-            : [90.4, 80.6, 80.2, 98.3, 33.4, 76.3, 36.6, 168.0];
+        var def = isMale
+            ? [90.6,86.7,81.2,95.2,38.5,77.1,37.7,174.0]
+            : [90.4,80.6,80.2,98.3,33.4,76.3,36.6,168.0];
 
-        var hCm      = (parseFloat(data.height) || def[7]/100) * 100;
-        var bust     = parseFloat(data.bust)     || def[0];
-        var waist    = parseFloat(data.waist)    || def[2];
-        var hip      = parseFloat(data.hip)      || def[3];
-        var shoulder = parseFloat(data.shoulder) || def[6];
-
-        var mins = [ 79, 70, 52, 79, 29, 65, 29, 145];
-        var maxs = [113,101,113,121, 45, 95, 60, 201];
+        var hCm = (parseFloat(data.height)||def[7]/100)*100;
+        var b   = parseFloat(data.bust)||def[0];
+        var w   = parseFloat(data.waist)||def[2];
+        var h   = parseFloat(data.hip)||def[3];
+        var s   = parseFloat(data.shoulder)||def[6];
 
         resetParams([
-            clamp(bust,        mins[0], maxs[0]),
-            clamp(bust*0.88,   mins[1], maxs[1]),
-            clamp(waist,       mins[2], maxs[2]),
-            clamp(hip,         mins[3], maxs[3]),
-            clamp(def[4],      mins[4], maxs[4]),
-            clamp(hCm*0.45,    mins[5], maxs[5]),
-            clamp(shoulder,    mins[6], maxs[6]),
-            clamp(hCm,         mins[7], maxs[7]),
+            clamp(b,      79,113),
+            clamp(b*0.88, 70,101),
+            clamp(w,      52,113),
+            clamp(h,      79,121),
+            clamp(def[4], 29, 45),
+            clamp(hCm*.45,65, 95),
+            clamp(s,      29, 60),
+            clamp(hCm,   145,201),
         ]);
 
-        // Ativa as curvas de medida do modelo
+        // Ativa curvas de medida
         MEASURE_CURVES.visible = true;
         redrawCurves();
 
-        setTimeout(hideGUI, 60);
+        // Reset câmera para frontal após gerar o modelo
+        setTimeout(setCameraFrontal, 150);
+        setTimeout(hideGUI, 80);
 
         if (window.ReactNativeWebView) {
-            window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'applied' }));
+            window.ReactNativeWebView.postMessage(JSON.stringify({status:'applied'}));
         }
     };
 
-    // ─── Escuta mensagens do app ──────────────────────────────────
+    // compat com versão anterior
+    window._kcApplyMeasurements = window._kcApply;
+
     window.addEventListener('message', function(e) {
-        try {
-            var d = JSON.parse(e.data);
-            if (d && window._kcApplyMeasurements) window._kcApplyMeasurements(d);
-        } catch(err) { console.warn('KC parse:', err); }
+        try { var d=JSON.parse(e.data); if(d) window._kcApply(d); }
+        catch(err){ console.warn('KC:',err); }
     });
 
-    // ─── Init ─────────────────────────────────────────────────────
     window.addEventListener('load', function() {
-        setTimeout(function() {
+        setTimeout(function(){
             hideGUI();
-            hookRenderLoop();
-            updateLabelValues();
+            hookRender();
+            updateValues();
             if (window.ReactNativeWebView) {
-                window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'ready' }));
+                window.ReactNativeWebView.postMessage(JSON.stringify({status:'ready'}));
             }
         }, 2500);
     });
 
     setTimeout(hideGUI, 100);
-    setTimeout(hideGUI, 700);
+    setTimeout(hideGUI, 800);
     </script>
 </body>
 </html>
