@@ -36,7 +36,6 @@
             pointer-events:none; z-index:100;
         }
 
-        /* ── Label principal ── */
         .lbl {
             position:absolute;
             pointer-events:none;
@@ -44,41 +43,30 @@
             transform:translate(-50%,-50%);
         }
 
-        /* Pill com fundo semitransparente escuro — legível em qualquer fundo */
         .lbl-pill {
             display:flex; flex-direction:column; align-items:center;
             background: rgba(20,14,0,0.72);
             border: 1px solid rgba(212,160,23,0.6);
             border-radius: 7px;
             padding: 3px 8px 2px;
-            backdrop-filter: blur(2px);
         }
 
         .lbl-val {
             color: #FFC107;
             font-family: -apple-system,'Helvetica Neue',sans-serif;
-            font-size: 14px;
-            font-weight: 800;
-            white-space: nowrap;
-            line-height: 1.2;
-            letter-spacing: 0.2px;
+            font-size: 14px; font-weight: 800;
+            white-space: nowrap; line-height: 1.2;
         }
 
         .lbl-name {
             color: rgba(255,193,7,0.75);
             font-family: -apple-system,'Helvetica Neue',sans-serif;
-            font-size: 8px;
-            font-weight: 700;
-            letter-spacing: 0.8px;
-            text-transform: uppercase;
-            line-height: 1.2;
+            font-size: 8px; font-weight: 700;
+            letter-spacing: 0.8px; text-transform: uppercase; line-height: 1.2;
         }
 
-        /* Linha conectora lateral */
         .lbl-line {
-            height: 1px;
-            background: rgba(255,193,7,0.5);
-            margin-bottom: 3px;
+            height: 1px; background: rgba(255,193,7,0.5); margin-bottom: 3px;
         }
     </style>
 </head>
@@ -96,19 +84,18 @@
         panturrilhaDir:null, panturrilhaEsq:null,
     };
 
-    // ── Âncoras calibradas para vista frontal ─────────────────────
     var ANCHORS = [
-        { key:'ombros',          name:'Ombros',   ry:0.795, rx: 0.00, rz:0.15, pxX:  0 },
-        { key:'peito',           name:'Peito',    ry:0.715, rx: 0.00, rz:0.20, pxX:  0 },
-        { key:'cintura',         name:'Cintura',  ry:0.605, rx: 0.00, rz:0.15, pxX:  0 },
-        { key:'abdomen',         name:'Abdômen',  ry:0.535, rx: 0.00, rz:0.16, pxX:  0 },
-        { key:'quadril',         name:'Quadril',  ry:0.462, rx: 0.00, rz:0.17, pxX:  0 },
-        { key:'bicepsDir',       name:'Bíceps D', ry:0.715, rx:-0.22, rz:0.00, pxX:-14 },
-        { key:'bicepsEsq',       name:'Bíceps E', ry:0.715, rx: 0.22, rz:0.00, pxX: 14 },
-        { key:'coxaDir',         name:'Coxa D',   ry:0.328, rx:-0.15, rz:0.14, pxX:-12 },
-        { key:'coxaEsq',         name:'Coxa E',   ry:0.328, rx: 0.15, rz:0.14, pxX: 12 },
-        { key:'panturrilhaDir',  name:'Pant. D',  ry:0.173, rx:-0.11, rz:0.12, pxX:-12 },
-        { key:'panturrilhaEsq',  name:'Pant. E',  ry:0.173, rx: 0.11, rz:0.12, pxX: 12 },
+        { key:'ombros',         name:'Ombros',   ry:0.795, rx: 0.00, rz:0.15, pxX:  0 },
+        { key:'peito',          name:'Peito',    ry:0.715, rx: 0.00, rz:0.20, pxX:  0 },
+        { key:'cintura',        name:'Cintura',  ry:0.605, rx: 0.00, rz:0.15, pxX:  0 },
+        { key:'abdomen',        name:'Abdômen',  ry:0.535, rx: 0.00, rz:0.16, pxX:  0 },
+        { key:'quadril',        name:'Quadril',  ry:0.462, rx: 0.00, rz:0.17, pxX:  0 },
+        { key:'bicepsDir',      name:'Bíceps D', ry:0.715, rx:-0.22, rz:0.00, pxX:-14 },
+        { key:'bicepsEsq',      name:'Bíceps E', ry:0.715, rx: 0.22, rz:0.00, pxX: 14 },
+        { key:'coxaDir',        name:'Coxa D',   ry:0.328, rx:-0.15, rz:0.14, pxX:-12 },
+        { key:'coxaEsq',        name:'Coxa E',   ry:0.328, rx: 0.15, rz:0.14, pxX: 12 },
+        { key:'panturrilhaDir', name:'Pant. D',  ry:0.173, rx:-0.11, rz:0.12, pxX:-12 },
+        { key:'panturrilhaEsq', name:'Pant. E',  ry:0.173, rx: 0.11, rz:0.12, pxX: 12 },
     ];
 
     var lblEls = {};
@@ -118,7 +105,6 @@
         var w = document.createElement('div');
         w.className = 'lbl'; w.id = 'lbl-'+a.key;
 
-        // Linha conectora para membros laterais
         if (a.rx !== 0) {
             var line = document.createElement('div');
             line.className = 'lbl-line';
@@ -126,16 +112,11 @@
             w.appendChild(line);
         }
 
-        // Pill
-        var pill = document.createElement('div');
-        pill.className = 'lbl-pill';
-
+        var pill = document.createElement('div'); pill.className = 'lbl-pill';
         var v = document.createElement('div'); v.className = 'lbl-val'; v.textContent = '--';
         var n = document.createElement('div'); n.className = 'lbl-name'; n.textContent = a.name;
-
         pill.appendChild(v); pill.appendChild(n);
         w.appendChild(pill);
-
         overlay.appendChild(w);
         lblEls[a.key] = { w:w, v:v };
     });
@@ -192,6 +173,29 @@
         CONTROLS.update();
     }
 
+    // ── Mantém apenas as curvas de Peito, Cintura e Quadril ──────
+    // Ordem das curvas no 3DHBGen (por índice em MEASURE_CURVES.children):
+    //   0 = Bust (Peito)     → MANTER
+    //   1 = Under Bust       → REMOVER
+    //   2 = Waist (Cintura)  → MANTER
+    //   3 = Hip (Quadril)    → MANTER
+    //   4 = Neck Girth       → REMOVER
+    //   5 = Inside Leg       → REMOVER (não é circunferência)
+    //   6 = Shoulder         → REMOVER (é largura, não circunferência)
+    //   último = pontos fpt  → REMOVER
+    var CURVES_TO_KEEP = [0, 2, 3]; // índices a manter
+
+    function filterCurves() {
+        if (!MEASURE_CURVES) return;
+        var total = MEASURE_CURVES.children.length;
+        for (var i = 0; i < total; i++) {
+            var child = MEASURE_CURVES.children[i];
+            if (child) {
+                child.visible = CURVES_TO_KEEP.indexOf(i) !== -1;
+            }
+        }
+    }
+
     function hideGUI() {
         var ss = ['.yagui-topbar','.yagui-sidebar','.yagui-panel',
                   'nav','[class*="sidebar"]','[class*="topbar"]',
@@ -211,24 +215,24 @@
     function clamp(v,a,b){ return Math.max(a,Math.min(b,v)); }
 
     window._kcApply = function(data) {
-        KC.ombros         = data.shoulder      ? String(Math.round(data.shoulder))      : null;
-        KC.peito          = data.bust          ? String(Math.round(data.bust))          : null;
-        KC.cintura        = data.waist         ? String(Math.round(data.waist))         : null;
-        KC.abdomen        = data.abdomen       ? String(Math.round(data.abdomen))       : null;
-        KC.quadril        = data.hip           ? String(Math.round(data.hip))           : null;
-        KC.bicepsDir      = data.bicepsDir     ? String(Math.round(data.bicepsDir))     : null;
-        KC.bicepsEsq      = data.bicepsEsq     ? String(Math.round(data.bicepsEsq))     : null;
-        KC.coxaDir        = data.coxaDir       ? String(Math.round(data.coxaDir))       : null;
-        KC.coxaEsq        = data.coxaEsq       ? String(Math.round(data.coxaEsq))       : null;
+        KC.ombros         = data.shoulder      ? String(Math.round(data.shoulder))       : null;
+        KC.peito          = data.bust          ? String(Math.round(data.bust))           : null;
+        KC.cintura        = data.waist         ? String(Math.round(data.waist))          : null;
+        KC.abdomen        = data.abdomen       ? String(Math.round(data.abdomen))        : null;
+        KC.quadril        = data.hip           ? String(Math.round(data.hip))            : null;
+        KC.bicepsDir      = data.bicepsDir     ? String(Math.round(data.bicepsDir))      : null;
+        KC.bicepsEsq      = data.bicepsEsq     ? String(Math.round(data.bicepsEsq))      : null;
+        KC.coxaDir        = data.coxaDir       ? String(Math.round(data.coxaDir))        : null;
+        KC.coxaEsq        = data.coxaEsq       ? String(Math.round(data.coxaEsq))        : null;
         KC.panturrilhaDir = data.panturrilhaDir ? String(Math.round(data.panturrilhaDir)) : null;
         KC.panturrilhaEsq = data.panturrilhaEsq ? String(Math.round(data.panturrilhaEsq)) : null;
 
         updateValues();
 
-        var gv = data.gender==='male' ? 1 : 0;
+        var gv     = data.gender==='male' ? 1 : 0;
+        var isMale = gv===1;
         setGender(gv);
 
-        var isMale = gv===1;
         var def = isMale
             ? [90.6,86.7,81.2,95.2,38.5,77.1,37.7,174.0]
             : [90.4,80.6,80.2,98.3,33.4,76.3,36.6,168.0];
@@ -240,19 +244,21 @@
         var s   = parseFloat(data.shoulder)||def[6];
 
         resetParams([
-            clamp(b,       79,113),
-            clamp(b*0.88,  70,101),
-            clamp(w,       52,113),
-            clamp(h,       79,121),
-            clamp(def[4],  29, 45),
-            clamp(hCm*.45, 65, 95),
-            clamp(s,       29, 60),
-            clamp(hCm,    145,201),
+            clamp(b,       79,113),  // 0: Bust
+            clamp(b*0.88,  70,101),  // 1: Under Bust (estimado, curva oculta)
+            clamp(w,       52,113),  // 2: Waist
+            clamp(h,       79,121),  // 3: Hip
+            clamp(def[4],  29, 45),  // 4: Neck Girth (padrão, curva oculta)
+            clamp(hCm*.45, 65, 95),  // 5: Inside Leg
+            clamp(s,       29, 60),  // 6: Shoulder
+            clamp(hCm,    145,201),  // 7: Body Height
         ]);
 
-        // Só ativa as 5 curvas que o modelo suporta
+        // Desenha todas as curvas e filtra logo em seguida
         MEASURE_CURVES.visible = true;
         redrawCurves();
+        // Pequeno delay para garantir que redrawCurves terminou
+        setTimeout(filterCurves, 30);
 
         setTimeout(setCameraFrontal, 150);
         setTimeout(hideGUI, 80);
