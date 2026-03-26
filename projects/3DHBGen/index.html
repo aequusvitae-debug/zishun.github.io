@@ -19,88 +19,72 @@
 
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
+        html, body { width: 100%; height: 100%; overflow: hidden; background: #f0f0f0; }
 
-        html, body {
-            width: 100%; height: 100%;
-            overflow: hidden;
-            background: #1a1a1a;
-        }
+        #viewport { width: 100vw; height: 100vh; position: fixed; top: 0; left: 0; }
 
-        #viewport {
-            width: 100vw; height: 100vh;
-            position: fixed; top: 0; left: 0;
-        }
-
-        /* Esconde toda a interface do yagui */
+        /* Esconde toda a interface yagui */
         .yagui-topbar, .yagui-sidebar, .yagui-sidebar-right,
         .yagui-panel, .yagui-menu, .yagui-menubar,
         [class*="yagui-top"], [class*="yagui-right"], [class*="yagui-sidebar"] {
-            display: none !important;
-            visibility: hidden !important;
+            display: none !important; visibility: hidden !important;
             width: 0 !important; height: 0 !important;
-            overflow: hidden !important;
-            pointer-events: none !important;
+            overflow: hidden !important; pointer-events: none !important;
         }
 
-        canvas {
-            width: 100vw !important; height: 100vh !important;
-            display: block !important;
-        }
+        canvas { width: 100vw !important; height: 100vh !important; display: block !important; }
 
-        /* Container de labels flutuantes */
+        /* ── Labels flutuantes ── */
         #labels-overlay {
-            position: fixed;
-            top: 0; left: 0;
+            position: fixed; top: 0; left: 0;
             width: 100vw; height: 100vh;
-            pointer-events: none;
-            z-index: 100;
+            pointer-events: none; z-index: 100;
         }
 
-        /* Cada label flutuante */
         .body-label {
             position: absolute;
             transform: translate(-50%, -50%);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
+            display: flex; flex-direction: column; align-items: center;
             pointer-events: none;
-            transition: opacity 0.2s;
+            transition: left 0.1s, top 0.1s, opacity 0.2s;
         }
 
+        /* Valor numérico — dourado sem fundo, igual à imagem de referência */
         .body-label-value {
-            background: rgba(255, 193, 7, 0.92);
-            color: #000;
-            font-family: -apple-system, sans-serif;
-            font-size: 13px;
-            font-weight: 700;
-            padding: 3px 7px;
-            border-radius: 5px;
+            color: #D4A017;
+            font-family: -apple-system, 'Helvetica Neue', sans-serif;
+            font-size: 15px;
+            font-weight: 800;
             white-space: nowrap;
-            line-height: 1.3;
-            box-shadow: 0 1px 6px rgba(0,0,0,0.5);
-        }
-
-        .body-label-name {
-            color: rgba(255, 193, 7, 0.75);
-            font-family: -apple-system, sans-serif;
-            font-size: 9px;
-            font-weight: 600;
-            margin-top: 2px;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+            text-shadow:
+                0 0 6px rgba(0,0,0,0.9),
+                0 0 12px rgba(0,0,0,0.7),
+                1px 1px 0 rgba(0,0,0,0.8);
             letter-spacing: 0.3px;
         }
 
-        /* Linha conectora da label ao corpo */
-        .body-label-line {
-            width: 1px;
-            background: rgba(255, 193, 7, 0.4);
-            margin-bottom: 2px;
+        /* Nome da medida — menor, abaixo */
+        .body-label-name {
+            color: rgba(212, 160, 23, 0.65);
+            font-family: -apple-system, 'Helvetica Neue', sans-serif;
+            font-size: 8px;
+            font-weight: 600;
+            margin-top: 1px;
+            text-shadow: 0 1px 4px rgba(0,0,0,1);
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        /* Linha lateral conectora (para bíceps/coxa/panturrilha) */
+        .body-label-connector {
+            width: 18px; height: 1px;
+            background: rgba(212, 160, 23, 0.5);
+            margin-bottom: 3px;
         }
     </style>
 </head>
 <body>
     <div id='viewport'></div>
-    <!-- Overlay de labels flutuantes -->
     <div id='labels-overlay'></div>
 
     <script type='text/javascript' src='main.js'></script>
@@ -108,220 +92,190 @@
     <script>
     'use strict';
 
-    // ─── Dados recebidos do app ───────────────────────────────────
+    // ─── Medidas recebidas do app ─────────────────────────────────
     var KC_MEASUREMENTS = {
-        ombros:   null, peito:  null, cintura: null,
-        abdomen:  null, quadril: null,
+        ombros: null, peito: null, cintura: null, abdomen: null, quadril: null,
         bicepsDir: null, bicepsEsq: null,
-        coxaDir:  null, coxaEsq: null,
+        coxaDir: null, coxaEsq: null,
         panturrilhaDir: null, panturrilhaEsq: null,
     };
 
-    // ─── Definição dos pontos de ancoragem no espaço 3D do modelo ─
-    // Cada ponto usa coordenadas normalizadas em relação à altura do modelo.
-    // x: -0.5 (esquerda) a +0.5 (direita), y: 0 (chão) a 1 (cabeça), z: frontal
-    // offsetX: empurra a label para fora do corpo (negativo = esquerda, positivo = direita)
+    // ─── Âncoras 3D calibradas ────────────────────────────────────
+    // ry = fração da altura do modelo a partir do chão (0=chão, 1=topo)
+    // rx = deslocamento horizontal em frações da altura (0=centro)
+    // rz = profundidade frontal
+    // side: 'center' | 'left' | 'right'
     var LABEL_ANCHORS = [
-        { key: 'ombros',      name: 'Ombros',    rx: 0.00,  ry: 0.82, rz: 0.15, offsetX:  0,     lineH: 0  },
-        { key: 'peito',       name: 'Peito',     rx: 0.00,  ry: 0.73, rz: 0.18, offsetX:  0,     lineH: 0  },
-        { key: 'cintura',     name: 'Cintura',   rx: 0.00,  ry: 0.60, rz: 0.15, offsetX:  0,     lineH: 0  },
-        { key: 'abdomen',     name: 'Abdômen',   rx: 0.00,  ry: 0.53, rz: 0.16, offsetX:  0,     lineH: 0  },
-        { key: 'quadril',     name: 'Quadril',   rx: 0.00,  ry: 0.46, rz: 0.18, offsetX:  0,     lineH: 0  },
-        { key: 'bicepsDir',   name: 'Bíceps D',  rx: -0.19, ry: 0.73, rz: 0.05, offsetX: -28,   lineH: 0  },
-        { key: 'bicepsEsq',   name: 'Bíceps E',  rx:  0.19, ry: 0.73, rz: 0.05, offsetX:  28,   lineH: 0  },
-        { key: 'coxaDir',     name: 'Coxa D',    rx: -0.13, ry: 0.32, rz: 0.14, offsetX: -28,   lineH: 0  },
-        { key: 'coxaEsq',     name: 'Coxa E',    rx:  0.13, ry: 0.32, rz: 0.14, offsetX:  28,   lineH: 0  },
-        { key: 'panturrilhaDir', name: 'Pant. D', rx: -0.10, ry: 0.18, rz: 0.12, offsetX: -28,  lineH: 0  },
-        { key: 'panturrilhaEsq', name: 'Pant. E', rx:  0.10, ry: 0.18, rz: 0.12, offsetX:  28,  lineH: 0  },
+        // Tronco central — empilhados verticalmente, sem sobreposição
+        { key: 'ombros',   name: 'Ombros',   ry: 0.795, rx:  0.00, rz: 0.16, side: 'center' },
+        { key: 'peito',    name: 'Peito',    ry: 0.720, rx:  0.00, rz: 0.20, side: 'center' },
+        { key: 'cintura',  name: 'Cintura',  ry: 0.610, rx:  0.00, rz: 0.16, side: 'center' },
+        { key: 'abdomen',  name: 'Abdômen',  ry: 0.540, rx:  0.00, rz: 0.17, side: 'center' },
+        { key: 'quadril',  name: 'Quadril',  ry: 0.465, rx:  0.00, rz: 0.18, side: 'center' },
+        // Membros — esquerda e direita, evitando sobreposição com centro
+        { key: 'bicepsDir',      name: 'Bíceps D',  ry: 0.720, rx: -0.21, rz: 0.04, side: 'left'   },
+        { key: 'bicepsEsq',      name: 'Bíceps E',  ry: 0.720, rx:  0.21, rz: 0.04, side: 'right'  },
+        { key: 'coxaDir',        name: 'Coxa D',    ry: 0.330, rx: -0.14, rz: 0.15, side: 'left'   },
+        { key: 'coxaEsq',        name: 'Coxa E',    ry: 0.330, rx:  0.14, rz: 0.15, side: 'right'  },
+        { key: 'panturrilhaDir', name: 'Pant. D',   ry: 0.175, rx: -0.10, rz: 0.13, side: 'left'   },
+        { key: 'panturrilhaEsq', name: 'Pant. E',   ry: 0.175, rx:  0.10, rz: 0.13, side: 'right'  },
     ];
 
-    // ─── Cria os elementos DOM de cada label ─────────────────────
+    // ─── Cria elementos DOM ───────────────────────────────────────
     var labelEls = {};
-    var overlay = document.getElementById('labels-overlay');
+    var overlay  = document.getElementById('labels-overlay');
 
-    LABEL_ANCHORS.forEach(function(anchor) {
-        var wrapper = document.createElement('div');
-        wrapper.className = 'body-label';
-        wrapper.id = 'label-' + anchor.key;
+    LABEL_ANCHORS.forEach(function(a) {
+        var wrap = document.createElement('div');
+        wrap.className = 'body-label';
+        wrap.id = 'label-' + a.key;
 
-        if (anchor.lineH > 0) {
-            var line = document.createElement('div');
-            line.className = 'body-label-line';
-            line.style.height = anchor.lineH + 'px';
-            wrapper.appendChild(line);
+        // Linha conectora apenas para membros laterais
+        if (a.side !== 'center') {
+            var conn = document.createElement('div');
+            conn.className = 'body-label-connector';
+            if (a.side === 'right') conn.style.transform = 'scaleX(-1)';
+            wrap.appendChild(conn);
         }
 
-        var valEl = document.createElement('div');
+        var valEl  = document.createElement('div');
         valEl.className = 'body-label-value';
         valEl.textContent = '--';
-        wrapper.appendChild(valEl);
+        wrap.appendChild(valEl);
 
         var nameEl = document.createElement('div');
         nameEl.className = 'body-label-name';
-        nameEl.textContent = anchor.name;
-        wrapper.appendChild(nameEl);
+        nameEl.textContent = a.name;
+        wrap.appendChild(nameEl);
 
-        overlay.appendChild(wrapper);
-        labelEls[anchor.key] = { wrapper: wrapper, valEl: valEl };
+        overlay.appendChild(wrap);
+        labelEls[a.key] = { wrap: wrap, valEl: valEl };
     });
 
-    // ─── Atualiza os valores das labels ──────────────────────────
+    // ─── Atualiza textos das labels ───────────────────────────────
     function updateLabelValues() {
-        LABEL_ANCHORS.forEach(function(anchor) {
-            var val = KC_MEASUREMENTS[anchor.key];
-            var el  = labelEls[anchor.key];
+        LABEL_ANCHORS.forEach(function(a) {
+            var val = KC_MEASUREMENTS[a.key];
+            var el  = labelEls[a.key];
             if (!el) return;
-            el.valEl.textContent = (val && val !== '0') ? val + ' cm' : '--';
-            el.wrapper.style.opacity = (val && val !== '0') ? '1' : '0.35';
+            var hasVal = val && parseFloat(val) > 0;
+            el.valEl.textContent       = hasVal ? val + ' cm' : '--';
+            el.wrap.style.opacity      = hasVal ? '1' : '0.25';
         });
     }
 
-    // ─── Projeta posições 3D → 2D e posiciona as labels ─────────
-    // Chamado a cada frame pelo loop de animação do Three.js
-    var _origRender = window.render;  // referência ao render original do main.js
-
+    // ─── Projeta posições 3D → pixels na tela ────────────────────
     function projectLabels() {
         if (!MESH || !CAMERA || !RENDERER) return;
 
-        // Bounding box do modelo para calcular posições relativas
-        var bbox = new THREE.Box3().setFromObject(MESH);
-        var modelH = bbox.max.y - bbox.min.y;  // altura real do modelo em metros
-        var cx = (bbox.max.x + bbox.min.x) / 2;
-        var cz = (bbox.max.z + bbox.min.z) / 2;
+        var bbox   = new THREE.Box3().setFromObject(MESH);
+        var modelH = bbox.max.y - bbox.min.y;
+        var cx     = (bbox.max.x + bbox.min.x) / 2;
+        var cz     = (bbox.max.z + bbox.min.z) / 2;
 
         var W = RENDERER.domElement.clientWidth  || window.innerWidth;
         var H = RENDERER.domElement.clientHeight || window.innerHeight;
 
-        LABEL_ANCHORS.forEach(function(anchor) {
-            var el = labelEls[anchor.key];
+        LABEL_ANCHORS.forEach(function(a) {
+            var el = labelEls[a.key];
             if (!el) return;
 
-            // Posição 3D do ponto de ancoragem
             var worldPos = new THREE.Vector3(
-                cx + anchor.rx * modelH,
-                bbox.min.y + anchor.ry * modelH,
-                cz + anchor.rz * modelH
+                cx + a.rx * modelH,
+                bbox.min.y + a.ry * modelH,
+                cz + a.rz * modelH
             );
 
-            // Projeta para coordenadas de clip (-1 a +1)
-            var projected = worldPos.clone().project(CAMERA);
+            var proj = worldPos.clone().project(CAMERA);
 
-            // Converte para pixels na tela
-            var screenX = ( projected.x * 0.5 + 0.5) * W + anchor.offsetX;
-            var screenY = (-projected.y * 0.5 + 0.5) * H;
+            if (proj.z > 1) { el.wrap.style.display = 'none'; return; }
 
-            // Esconde se estiver atrás da câmera
-            if (projected.z > 1) {
-                el.wrapper.style.display = 'none';
-                return;
-            }
-
-            el.wrapper.style.display = 'flex';
-            el.wrapper.style.left    = screenX + 'px';
-            el.wrapper.style.top     = screenY + 'px';
+            el.wrap.style.display = 'flex';
+            el.wrap.style.left    = ( proj.x * 0.5 + 0.5) * W + 'px';
+            el.wrap.style.top     = (-proj.y * 0.5 + 0.5) * H + 'px';
         });
     }
 
-    // ─── Hook no loop de animação ─────────────────────────────────
-    // Sobrescreve a função render do main.js para adicionar a projeção
+    // ─── Hook no loop de render ───────────────────────────────────
     function hookRenderLoop() {
         if (typeof render === 'function' && typeof RENDERER !== 'undefined') {
-            var originalRender = render;
-            window.render = function() {
-                originalRender();
-                projectLabels();
-            };
-            console.log('KC: render hook aplicado');
+            var orig = render;
+            window.render = function() { orig(); projectLabels(); };
         } else {
             setTimeout(hookRenderLoop, 100);
         }
     }
 
-    // ─── Esconde GUI do yagui ─────────────────────────────────────
+    // ─── Esconde GUI yagui ────────────────────────────────────────
     function hideGUI() {
-        var selectors = [
-            '.yagui-topbar', '.yagui-sidebar', '.yagui-panel',
-            'nav', '[class*="sidebar"]', '[class*="topbar"]',
-            '[class*="menu"]', '[class*="panel"]', '[class*="gui"]'
-        ];
-        selectors.forEach(function(sel) {
-            document.querySelectorAll(sel).forEach(function(el) {
-                el.style.display    = 'none';
-                el.style.visibility = 'hidden';
-                el.style.width      = '0';
-                el.style.height     = '0';
-                el.style.overflow   = 'hidden';
+        var sels = ['.yagui-topbar','.yagui-sidebar','.yagui-panel',
+                    'nav','[class*="sidebar"]','[class*="topbar"]',
+                    '[class*="menu"]','[class*="panel"]','[class*="gui"]'];
+        sels.forEach(function(s) {
+            document.querySelectorAll(s).forEach(function(el) {
+                el.style.cssText = 'display:none!important;visibility:hidden!important;width:0!important;height:0!important;overflow:hidden!important;';
             });
         });
         document.querySelectorAll('canvas').forEach(function(c) {
-            c.style.width    = '100vw';
-            c.style.height   = '100vh';
-            c.style.position = 'fixed';
-            c.style.top  = '0';
-            c.style.left = '0';
+            c.style.width = '100vw'; c.style.height = '100vh';
+            c.style.position = 'fixed'; c.style.top = '0'; c.style.left = '0';
         });
         window.dispatchEvent(new Event('resize'));
     }
 
-    // ─── Clamp util ───────────────────────────────────────────────
-    function clamp(val, min, max) {
-        return Math.max(min, Math.min(max, val));
-    }
+    function clamp(v, mn, mx) { return Math.max(mn, Math.min(mx, v)); }
 
-    // ─── Aplica medidas recebidas do app ──────────────────────────
+    // ─── Recebe medidas do app e aplica ao modelo ─────────────────
     window._kcApplyMeasurements = function(data) {
-        // Salva os valores para as labels
-        KC_MEASUREMENTS.ombros        = data.shoulder ? String(data.shoulder) : null;
-        KC_MEASUREMENTS.peito         = data.bust     ? String(data.bust)     : null;
-        KC_MEASUREMENTS.cintura       = data.waist    ? String(data.waist)    : null;
-        KC_MEASUREMENTS.abdomen       = data.abdomen  ? String(data.abdomen)  : null;
-        KC_MEASUREMENTS.quadril       = data.hip      ? String(data.hip)      : null;
-        KC_MEASUREMENTS.bicepsDir     = data.bicepsDir   ? String(data.bicepsDir)   : null;
-        KC_MEASUREMENTS.bicepsEsq     = data.bicepsEsq   ? String(data.bicepsEsq)   : null;
-        KC_MEASUREMENTS.coxaDir       = data.coxaDir     ? String(data.coxaDir)     : null;
-        KC_MEASUREMENTS.coxaEsq       = data.coxaEsq     ? String(data.coxaEsq)     : null;
-        KC_MEASUREMENTS.panturrilhaDir = data.panturrilhaDir ? String(data.panturrilhaDir) : null;
-        KC_MEASUREMENTS.panturrilhaEsq = data.panturrilhaEsq ? String(data.panturrilhaEsq) : null;
+        // Salva para as labels
+        KC_MEASUREMENTS.ombros        = data.shoulder   ? String(Math.round(data.shoulder))   : null;
+        KC_MEASUREMENTS.peito         = data.bust       ? String(Math.round(data.bust))       : null;
+        KC_MEASUREMENTS.cintura       = data.waist      ? String(Math.round(data.waist))      : null;
+        KC_MEASUREMENTS.abdomen       = data.abdomen    ? String(Math.round(data.abdomen))    : null;
+        KC_MEASUREMENTS.quadril       = data.hip        ? String(Math.round(data.hip))        : null;
+        KC_MEASUREMENTS.bicepsDir     = data.bicepsDir  ? String(Math.round(data.bicepsDir))  : null;
+        KC_MEASUREMENTS.bicepsEsq     = data.bicepsEsq  ? String(Math.round(data.bicepsEsq))  : null;
+        KC_MEASUREMENTS.coxaDir       = data.coxaDir    ? String(Math.round(data.coxaDir))    : null;
+        KC_MEASUREMENTS.coxaEsq       = data.coxaEsq    ? String(Math.round(data.coxaEsq))    : null;
+        KC_MEASUREMENTS.panturrilhaDir = data.panturrilhaDir ? String(Math.round(data.panturrilhaDir)) : null;
+        KC_MEASUREMENTS.panturrilhaEsq = data.panturrilhaEsq ? String(Math.round(data.panturrilhaEsq)) : null;
 
         updateLabelValues();
 
         // Aplica ao modelo 3D
-        var genderVal = (data.gender === 'male') ? 1 : 0;
+        var genderVal = data.gender === 'male' ? 1 : 0;
         setGender(genderVal);
 
-        var isMale   = (genderVal === 1);
-        var defaults = isMale
+        var isMale   = genderVal === 1;
+        var def      = isMale
             ? [90.6, 86.7, 81.2, 95.2, 38.5, 77.1, 37.7, 174.0]
             : [90.4, 80.6, 80.2, 98.3, 33.4, 76.3, 36.6, 168.0];
 
-        var hCm       = (parseFloat(data.height) || defaults[7] / 100) * 100;
-        var bust      = parseFloat(data.bust)     || defaults[0];
-        var underBust = bust * 0.88;
-        var waist     = parseFloat(data.waist)    || defaults[2];
-        var hip       = parseFloat(data.hip)      || defaults[3];
-        var shoulder  = parseFloat(data.shoulder) || defaults[6];
-        var insideLeg = hCm * 0.45;
-        var neckGirth = defaults[4];
+        var hCm      = (parseFloat(data.height) || def[7]/100) * 100;
+        var bust     = parseFloat(data.bust)     || def[0];
+        var waist    = parseFloat(data.waist)    || def[2];
+        var hip      = parseFloat(data.hip)      || def[3];
+        var shoulder = parseFloat(data.shoulder) || def[6];
 
-        var mins = [ 79.0,  70.0,  52.0,  79.0,  29.0,  65.0,  29.0, 145.0];
-        var maxs = [113.0, 101.0, 113.0, 121.0,  45.0,  95.0,  60.0, 201.0];
+        var mins = [ 79, 70, 52, 79, 29, 65, 29, 145];
+        var maxs = [113,101,113,121, 45, 95, 60, 201];
 
         resetParams([
-            clamp(bust,       mins[0], maxs[0]),
-            clamp(underBust,  mins[1], maxs[1]),
-            clamp(waist,      mins[2], maxs[2]),
-            clamp(hip,        mins[3], maxs[3]),
-            clamp(neckGirth,  mins[4], maxs[4]),
-            clamp(insideLeg,  mins[5], maxs[5]),
-            clamp(shoulder,   mins[6], maxs[6]),
-            clamp(hCm,        mins[7], maxs[7])
+            clamp(bust,        mins[0], maxs[0]),
+            clamp(bust*0.88,   mins[1], maxs[1]),
+            clamp(waist,       mins[2], maxs[2]),
+            clamp(hip,         mins[3], maxs[3]),
+            clamp(def[4],      mins[4], maxs[4]),
+            clamp(hCm*0.45,    mins[5], maxs[5]),
+            clamp(shoulder,    mins[6], maxs[6]),
+            clamp(hCm,         mins[7], maxs[7]),
         ]);
 
-        // Ativa as linhas de medida
+        // Ativa as curvas de medida do modelo
         MEASURE_CURVES.visible = true;
         redrawCurves();
 
-        setTimeout(hideGUI, 50);
+        setTimeout(hideGUI, 60);
 
         if (window.ReactNativeWebView) {
             window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'applied' }));
@@ -329,24 +283,19 @@
     };
 
     // ─── Escuta mensagens do app ──────────────────────────────────
-    window.addEventListener('message', function(event) {
+    window.addEventListener('message', function(e) {
         try {
-            var data = JSON.parse(event.data);
-            if (data && window._kcApplyMeasurements) {
-                window._kcApplyMeasurements(data);
-            }
-        } catch(e) {
-            console.warn('KC parse error:', e);
-        }
+            var d = JSON.parse(e.data);
+            if (d && window._kcApplyMeasurements) window._kcApplyMeasurements(d);
+        } catch(err) { console.warn('KC parse:', err); }
     });
 
-    // ─── Inicialização ────────────────────────────────────────────
+    // ─── Init ─────────────────────────────────────────────────────
     window.addEventListener('load', function() {
         setTimeout(function() {
             hideGUI();
             hookRenderLoop();
             updateLabelValues();
-
             if (window.ReactNativeWebView) {
                 window.ReactNativeWebView.postMessage(JSON.stringify({ status: 'ready' }));
             }
@@ -354,7 +303,7 @@
     });
 
     setTimeout(hideGUI, 100);
-    setTimeout(hideGUI, 600);
+    setTimeout(hideGUI, 700);
     </script>
 </body>
 </html>
